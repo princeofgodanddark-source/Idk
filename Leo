@@ -1,0 +1,165 @@
+-- Delta-Compatible Kingleo Menu Hub
+-- Dynamically fetch JSON configuration and build the hub system.
+
+-- Utility: Fetch JSON Configuration (hosted online for Delta loadstring compatibility)
+local function fetchConfig()
+    local configURL = "https://pastebin.com/raw/YOUR_JSON_LINK" -- Replace with your hosted configuration URL
+    local json = game:HttpGet(configURL)
+    return json
+end
+
+-- Load JSON Parsing Library (dkjson or alternative)
+local json = require("dkjson")
+
+-- Parse JSON Configuration (fetch from hosted file)
+local configJSON = fetchConfig()
+local configData, _, err = json.decode(configJSON)
+if err then
+    error("Failed to parse JSON: " .. err)
+end
+
+-- Menu State
+local menu = {
+    enabled = false,
+    keybind = "F1",
+    themeColor = { r = 0.2, g = 0.6, b = 1 },
+    position = { x = 50, y = 50 },
+    controls = {}, -- Populated from JSON
+}
+
+-- General Feature State
+local features = {
+    aimbot = false,
+    esp = false,
+    triggerbot = false,
+    rageMode = false,
+    silentAim = false,
+    espColor = { r = 1, g = 0, b = 0 },
+    fireRate = 0.2,
+    aimRange = 100,
+    aimSmoothness = 0.9,
+}
+
+-- ABBREVIATED: Cross-Compatible API Functions
+local function universalGetEnemies()
+    local success, enemies = pcall(function()
+        return game:GetService("Workspace").Enemies:GetChildren()
+    end)
+    return success and enemies or {}
+end
+
+local function universalSetAimAt(targetPosition)
+    print("Aiming at:", targetPosition) -- Replace with your game engine's API
+end
+
+local function universalShoot()
+    print("Shooting!") -- Replace with your game engine's API
+end
+
+-- HELPER: Hex to RGB Conversion
+local function hexToRGB(hex)
+    return {
+        r = tonumber(hex:sub(1, 2), 16) / 255,
+        g = tonumber(hex:sub(3, 4), 16) / 255,
+        b = tonumber(hex:sub(5, 6), 16) / 255,
+    }
+end
+
+-- Dynamic Menu Creator from JSON
+local function setupMenuFromConfig(config)
+    for _, item in ipairs(config.objects or {}) do
+        local control = {
+            id = item.idx,
+            type = item.type,
+            value = item.value,
+        }
+
+        if item.type == "KeyPicker" then
+            control.key = item.key or "None"
+            control.mode = item.mode or "Toggle"
+        elseif item.type == "ColorPicker" then
+            control.color = hexToRGB(item.value)
+        elseif item.type == "Dropdown" then
+            control.options = item.value
+        end
+
+        table.insert(menu.controls, control)
+    end
+end
+setupMenuFromConfig(configData)
+
+-- RENDER MENU UI
+local function drawMenu()
+    if not menu.enabled then return end
+
+    -- Render Menu Background
+    drawBox(menu.position, { w = 400, h = 30 * #menu.controls + 50 }, menu.themeColor)
+
+    -- Render Menu Controls
+    local yOffset = 20
+    for _, control in ipairs(menu.controls) do
+        local display = ""
+        if control.type == "Toggle" then
+            display = control.value and "[ON]" or "[OFF]"
+        elseif control.type == "Slider" then
+            display = string.format("Value: %.2f", control.value)
+        elseif control.type == "Dropdown" then
+            display = table.concat(control.options, ", ")
+        end
+        drawText(
+            string.format("%s: %s", control.id:gsub("_", " "), display),
+            { x = menu.position.x + 10, y = menu.position.y + yOffset },
+            { r = 1, g = 1, b = 1 }
+        )
+        yOffset = yOffset + 30
+    end
+end
+
+-- FEATURE EXECUTION
+local function executeFeature(control)
+    if control.type == "Toggle" then
+        features[control.id] = control.value
+        print("Toggled feature:", control.id, "->", control.value)
+    elseif control.type == "Slider" then
+        features[control.id] = control.value
+        print("Updated slider:", control.id, "->", control.value)
+    elseif control.type == "Dropdown" then
+        features[control.id] = control.options
+        print("Updated dropdown:", control.id, "->", table.concat(control.options, ", "))
+    end
+end
+
+-- UPDATE MENU STATE & DRAW
+local function update()
+    if isKeyPressed(menu.keybind) then
+        menu.enabled = not menu.enabled
+    end
+
+    if menu.enabled then
+        drawMenu()
+    end
+
+    for _, control in ipairs(menu.controls) do
+        executeFeature(control)
+    end
+end
+
+-- GAME LOOP
+while true do
+    update()
+    wait(0.1)
+end
+
+-- Delta-Compatible Functions (Replace These!)
+function drawBox(position, size, color)
+    print("Drawing Box!", position, size, color)
+end
+
+function drawText(text, position, color)
+    print("Drawing Text!", text, position, color)
+end
+
+function isKeyPressed(keyName)
+    -- Placeholder: Implement your own key detection
+    return false
+end
